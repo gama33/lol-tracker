@@ -1,2 +1,3 @@
 # projeto-lol
-estudo de uso de API 
+estudo do uso de API
+estudo do framework React
