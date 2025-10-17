@@ -1,4 +1,4 @@
-# esse arquivo terá a "preocupação" de descrever a "forma" da nossa tabela.
+# esse arquivo terá a "preocupação" de descrever o modelo da nossa tabela.
 # importação dos modulos
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import declarative_base
