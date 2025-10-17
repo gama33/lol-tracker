@@ -3,7 +3,7 @@
 import requests
 
 #chave da API riot
-API_KEY = 'RGAPI-6e62aacf-c71c-47a4-a87e-11c84879b14e'
+API_KEY = 'RGAPI-7b3819e6-1c3f-4b32-a2d1-376ccfd78923'
 
 # variaveis globais
 tag_line = '7585'
