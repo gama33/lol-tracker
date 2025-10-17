@@ -5,5 +5,6 @@ Uma das minhas inteções nesse projeto é adiquirir boas práticas de desenvolv
 Para o backend estou usando o FastAPI para para construir as APIs com python juntamente com Uvicorn para implementação do servidor web.
 
 O banco de dados utilizado será o SQLite juntamente com a bilbioteca SQLAlchemy para fazer a interação entre o código python e o banco de dados.
+
 models.py - Responsável por descrever a "forma" dos nossos dados.
 database.py - Responsável por gerenciar a conexão com o banco de dados.
