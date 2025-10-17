@@ -16,7 +16,7 @@ app = FastAPI()
 # define a rota principal (endpoint)
 @app.get("/")
 def ler_raiz():
-    dados_das_partidas = riot_api.get_partidas_ids(riot_api.puuid, riot_api.API_KEY)
+    dados_das_partidas = riot_api.get_partidas_id(riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY), riot_api.API_KEY, 5)
     return dados_das_partidas
 
 # aqui criamos uma função de dependência para obter uma sessão do banco de dados
@@ -27,24 +27,33 @@ def get_db():
     finally:
         db.close()  
 
-@app.post("/sincronizar-partida-exemplo/") # criação da rota POST
+@app.post("/sincronizar-partida") # criação da rota POST
 def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acessar essa rota, execute a função get_db e me retorne o resultado da variável db"
-    # 1. cria um objeto Partida com dados de exemplo
-    partida_exemplo = models.Partida(
-        campeao="Jinx",
-        abates=10,
-        mortes=2,
-        assistencias=8,
-        cs=250
-    )
+    puuid = riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY)
+    historico_partida = riot_api.get_partidas_id(puuid, riot_api.API_KEY, 5)
 
-    # 2. adiciona o objeto à sessão (prepara para salvar)
-    db.add(partida_exemplo)
+    for partida_id in historico_partida:
+        lista_jogadores = riot_api.get_lista_participantes(partida_id)
+        dados_jogador = riot_api.get_jogador_dados(lista_jogadores, puuid, partida_id)
 
-    # 3. confirma a transação (salva de verdade no banco)
-    db.commit()
+        # 1. cria um objeto Partida com dados puxados da API
+        nova_partida = models.Partida(
+            campeao = dados_jogador['campeao'],
+            abates = dados_jogador['abates'],
+            mortes = dados_jogador['mortes'],
+            assistencias = dados_jogador['assistencias'],
+            cs = dados_jogador['cs']
+        )
 
-    # 4. atualiza o objeto com os dados do banco (com o ID gerado)
-    db.refresh(partida_exemplo)
+        print(f"Salvando dados para: {nova_partida.campeao}")
 
-    return partida_exemplo
+        # 2. adiciona o objeto à sessão (prepara para salvar)
+        db.add(nova_partida)
+
+        # 3. confirma a transação (salva de verdade no banco)
+        db.commit()
+
+        # 4. atualiza o objeto com os dados do banco (com o ID gerado)
+        db.refresh(nova_partida)
+
+    return {'status': 'Partidas sincronizadas com sucesso'}
