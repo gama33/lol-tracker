@@ -3,9 +3,9 @@
 import requests
 
 # variaveis globais
-API_KEY = 'RGAPI-7b3819e6-1c3f-4b32-a2d1-376ccfd78923' # chave api
-tag_line = '7585' # tag line do jogador
+API_KEY = 'RGAPI-856b763a-4604-437b-91b3-7ffb858f786a' # chave api
 nome_jogador = 'tequila sunset' # nome do jogador
+tag_line = '7585' # tag line do jogador
 
 # função retornar uma string com o valor do puuid do jogador
 def get_puuid(nome_jogador: str, tag_line: str, API_KEY: str) -> str:
@@ -34,10 +34,21 @@ def get_jogador_dados(lista_participantes: list, jogador_puuid: str, matchId: st
     dados_partida = get_partida_info(matchId, API_KEY)
 
     # armazenar cada dado do jogador da partida em sua respectivel variavel
+    partida_id = matchId
     campeao = dados_partida['info']['participants'][index_jogador]['championName']
     abates = dados_partida['info']['participants'][index_jogador]['kills']
     mortes = dados_partida['info']['participants'][index_jogador]['deaths']
     assistencias = dados_partida['info']['participants'][index_jogador]['assists']
     cs = dados_partida['info']['participants'][index_jogador]['totalMinionsKilled']
+    resultado_boolean = dados_partida['info']['participants'][index_jogador]['win']
+    resultado = 'Vitória' if resultado_boolean else 'Derrota'
 
-    return {'campeao': campeao, 'abates': abates, 'mortes': mortes, 'assistencias': assistencias, 'cs': cs}
+    return {
+        'partida_id': partida_id,
+        'campeao': campeao, 
+        'abates': abates, 
+        'mortes': mortes, 
+        'assistencias': assistencias, 
+        'cs': cs,
+        'resultado': resultado
+    }

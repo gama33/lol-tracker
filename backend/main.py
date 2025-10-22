@@ -37,13 +37,7 @@ def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acess
         dados_jogador = riot_api.get_jogador_dados(lista_jogadores, puuid, partida_id)
 
         # 1. cria um objeto Partida com dados puxados da API
-        nova_partida = models.Partida(
-            campeao = dados_jogador['campeao'],
-            abates = dados_jogador['abates'],
-            mortes = dados_jogador['mortes'],
-            assistencias = dados_jogador['assistencias'],
-            cs = dados_jogador['cs']
-        )
+        nova_partida = models.Partida(**dados_jogador) #O FastAPI tem um atalho muito útil. Se as chaves do seu dicionário ('campeao', 'abates', etc.) forem exatamente iguais aos nomes dos campos no seu models.Partida, você pode usar o operador ** (dois asteriscos) para "desempacotar" o dicionário
 
         print(f"Salvando dados para: {nova_partida.campeao}")
 
