@@ -1,11 +1,17 @@
 # esse arquivo tem a "preocupação" de definir as rotas da aplicação
+
+# importar dotenv e caregar as variaveis de ambiente
+from dotenv import load_dotenv
+load_dotenv()
+
 # importar a classes
 from fastapi import FastAPI # importa o modulo FastAPI
-import riot_api # importa o modulo riot_api
-import models # importa o modelo do banco de dados 
-from database import SessionLocal, engine # importa a engine do banco de dados e a sessão local
+from . import riot_api # importa o modulo riot_api
+from . import models # importa o modelo do banco de dados 
+from .database import SessionLocal, engine # importa a engine do banco de dados e a sessão local
 from sqlalchemy.orm import Session
 from fastapi import Depends
+
 
 # aqui o código diz ao SQLAlchemy para cirar as tabelas no banco de dados definidas em models.py
 models.Base.metadata.create_all(bind=engine) # cria as tabelas no banco de dados
