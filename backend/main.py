@@ -2,7 +2,7 @@
 
 # importar dotenv e caregar as variaveis de ambiente
 from dotenv import load_dotenv
-load_dotenv()
+load_dotenv('backend/.env')
 
 # importar a classes
 from fastapi import FastAPI # importa o modulo FastAPI
@@ -31,9 +31,9 @@ def get_db():
     try:
         yield db  
     finally:
-        db.close()  
+        db.close()
 
-@app.post("/sincronizar-partida") # criação da rota POST
+@app.post("/sincronizar-partidas") # criação da rota POST para sincronizar as partidas e guardar no banco de dados
 def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acessar essa rota, execute a função get_db e me retorne o resultado da variável db"
     puuid = riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY)
     historico_partida = riot_api.get_partidas_id(puuid, riot_api.API_KEY, 5)
@@ -57,3 +57,9 @@ def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acess
         db.refresh(nova_partida)
 
     return {'status': 'Partidas sincronizadas com sucesso'}
+
+
+@app.get('/partidas')
+def ler_partidas(db: Session = Depends (get_db)):
+    partidas = db.query(models.Partida).all()
+    return partidas
