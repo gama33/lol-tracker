@@ -65,6 +65,7 @@ def get_jogador_dados(lista_participantes: list, jogador_puuid: str, matchId: st
     tipo_fila = dados_partida_info['queueId']
     patch = dados_partida_info['gameVersion']
 
+    #retorna as valores para popular o banco de dados
     return {
         'partida_id': partida_id,
         'campeao': campeao, 
