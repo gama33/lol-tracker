@@ -58,8 +58,7 @@ def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acess
 
     return {'status': 'Partidas sincronizadas com sucesso'}
 
-
-@app.get('/partidas')
+@app.get('/partidas') # criação da rota GET para adquirir as informações do banco de dados
 def ler_partidas(db: Session = Depends (get_db)):
     partidas = db.query(models.Partida).all()
     return partidas
