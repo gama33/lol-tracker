@@ -1,17 +1,15 @@
 # esse arquivo tem a "preocupação" de definir as rotas da aplicação
-
 # importar dotenv e caregar as variaveis de ambiente
 from dotenv import load_dotenv
 load_dotenv('backend/.env')
-
 # importar a classes
 from fastapi import FastAPI # importa o modulo FastAPI
 from . import riot_api # importa o modulo riot_api
 from . import models # importa o modelo do banco de dados 
+from . import schemas # importa o molde de dados
 from .database import SessionLocal, engine # importa a engine do banco de dados e a sessão local
 from sqlalchemy.orm import Session
 from fastapi import Depends
-
 
 # aqui o código diz ao SQLAlchemy para cirar as tabelas no banco de dados definidas em models.py
 models.Base.metadata.create_all(bind=engine) # cria as tabelas no banco de dados
@@ -34,7 +32,7 @@ def get_db():
         db.close()
 
 @app.post("/sincronizar-partidas") # criação da rota POST para sincronizar as partidas e guardar no banco de dados
-def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acessar essa rota, execute a função get_db e me retorne o resultado da variável db"
+def sincronizar_partida(db: Session = Depends(get_db)): # "quando alguém acessar essa rota, execute a função get_db e me retorne o resultado da variável db"
     puuid = riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY)
     historico_partida = riot_api.get_partidas_id(puuid, riot_api.API_KEY, 5)
 
@@ -58,6 +56,15 @@ def sincronizar_partida(db: Session = Depends (get_db)): # "quando alguém acess
 
     return {'status': 'Partidas sincronizadas com sucesso'}
 
+@app.post("/sincronizar-jogadores")
+def sincronizar_jogadores(jogador: schemas.JogadorCreate, db: Session = Depends(get_db)):
+    # cria um novo jogador a partir do schema e salva no banco de dados
+    novo_jogador = models.Jogador(**jogador)
+    db.add(novo_jogador)
+    db.commit()
+    db.refresh(novo_jogador)
+    return {"status": "Jogador sincronizado com sucesso", "jogador_id": novo_jogador.id}
+        
 @app.get('/partidas') # criação da rota GET para adquirir as informações do banco de dados
 def ler_partidas(db: Session = Depends (get_db)):
     partidas = db.query(models.Partida).all()

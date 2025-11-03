@@ -1,11 +1,24 @@
 # esse arquivo terá a "preocupação" de descrever o modelo da nossa tabela.
 # importação dos modulos
-from sqlalchemy import Column, Integer, String, Float, Boolean, BigInteger
+from sqlalchemy import Column, Integer, String, Float, Boolean, BigInteger, ForeignKey 
 from .database import Base
-from sqlalchemy.orm import declarative_base
+from sqlalchemy.orm import declarative_base, relationship
 
 # cria uma classe Base para os modelos usarem
 Base = declarative_base()
+
+class Jogador(Base):
+    __tablename__ = 'jogadores'
+
+    id = Column(Integer, primary_key=True, index=True) #id do jogaor no banco de dados
+    puuid = Column(String, unique=True, index=True) #puuid do jogador
+    nome_jogador = Column(String) # nome do jogador
+    icone_id = Column(Integer) #id do icone do jogador
+
+    # Esta é a ligação "virtual" para as partidas.
+    # Diz: "Eu tenho muitas 'Partidas', e a forma de as encontrar
+    # é através do campo 'jogador' na outra classe."
+    partidas = relationship("Partida", back_populates="jogador")
 
 # modelo para a tabela de partidas
 class Partida(Base): # define o modelo - cada instancia dessa classe representa uma linha na tabela de partidas
@@ -34,3 +47,9 @@ class Partida(Base): # define o modelo - cada instancia dessa classe representa 
     double_kills = Column(Integer) # quantidade de double kills
     fb_kill = Column(Boolean) # se participou do first blood
     fb_assist = Column(Boolean) # se pegou o first blood 
+    
+    # Relação inversa: cada partida está associada a um jogador, 
+    jogador_id = Column(Integer, ForeignKey("jogadores.id"))
+
+    # correspondente ao campo 'partidas' na classe Jogador.
+    jogador = relationship("Jogador", back_populates="partidas")
