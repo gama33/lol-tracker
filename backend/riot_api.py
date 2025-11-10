@@ -1,9 +1,56 @@
 import requests
 import os
+import time
+from typing import Dict, List, Optional, Any
+from requests.exceptions import RequestException, HTTPError, Timeout
+from datetime import datetime, timedelta
+from enum import Enum
 
 API_KEY = os.environ.get('RIOT_API_KEY')
+RIOT_API_BASE_URL = "https://americas.api.riotgames.com"
+REQUEST_TIMEOUT = 10
+MAX_ENTRIES = 3
+RETRY_DELAY = 1
+
+APP_RATE_LIMIT_PER_SECOND = 20
+APP_RATE_LIMIT_PER_2MIN = 100
+
 nome_jogador = 'tequila sunset'
 tag_line = '7585'
+
+class Region(str, Enum):
+    AMERICAS = "americas"
+    ASIA = "asia"
+    EUROPE = "europe"
+    SEA = "sea"
+
+class Plataform(str, Enum):
+    BR1 = "br1"
+    EUN1 = "eun1"
+    EUW1 = "euw1"
+    JP1 = "jp1"
+    KR = "kr"
+    LA1 = "la1"
+    LA2 = "la2"
+    NA1 = "na1"
+    OC1 = "oc1"
+    TR1 = "tr1"
+    RU = "ru"
+    PH2 = "ph2"
+    SG2 = "sg2"
+    TH2 = "th2"
+    TW2 = "tw2"
+    VN2 = "vn2"
+
+class RiotAPIException(Exception):
+    def __init__(self, message: str, status_code: Optional[int] = None):
+        self.message = message
+        self.status_code = status_code
+        super().__init__(self.message)
+
+
+
+
 
 def get_puuid(nome_jogador: str, tag_line: str, API_KEY: str) -> str:
     return requests.get(f"https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{nome_jogador}/{tag_line}?api_key={API_KEY}").json().get('puuid')
