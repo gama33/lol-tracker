@@ -1,29 +1,22 @@
-# esse arquivo tem a "preocupação" de definir as rotas da aplicação
-# importar dotenv e caregar as variaveis de ambiente
+from pathlib import Path
 from dotenv import load_dotenv
-load_dotenv('backend/.env')
-# importar a classes
-from fastapi import FastAPI # importa o modulo FastAPI
-from . import riot_api # importa o modulo riot_api
-from . import models # importa o modelo do banco de dados 
-from . import schemas # importa o molde de dados
-from .database import SessionLocal, engine # importa a engine do banco de dados e a sessão local
+env_path = Path(__file__).parent / '.env'
+load_dotenv(env_path)
+
+from fastapi import FastAPI 
+from . import riot_api 
+from . import models  
+from . import schemas 
+from .database import SessionLocal, engine 
 from sqlalchemy.orm import Session
 from fastapi import Depends
 
-# aqui o código diz ao SQLAlchemy para cirar as tabelas no banco de dados definidas em models.py
-models.Base.metadata.create_all(bind=engine) # cria as tabelas no banco de dados
-
-# criar uma instância da aplicação
+models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
-
-# define a rota principal (endpoint)
 @app.get("/")
 def ler_raiz():
     dados_das_partidas = riot_api.get_partidas_id(riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY), riot_api.API_KEY, 5)
     return dados_das_partidas
-
-# aqui criamos uma função de dependência para obter uma sessão do banco de dados
 def get_db():
     db = SessionLocal()  
     try:
@@ -31,41 +24,54 @@ def get_db():
     finally:
         db.close()
 
-@app.post("/sincronizar-partidas") # criação da rota POST para sincronizar as partidas e guardar no banco de dados
-def sincronizar_partida(db: Session = Depends(get_db)): # "quando alguém acessar essa rota, execute a função get_db e me retorne o resultado da variável db"
-    puuid = riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY)
-    historico_partida = riot_api.get_partidas_id(puuid, riot_api.API_KEY, 5)
+@app.post("/sincronizar-partidas")
+def sincronizar_partida(db: Session = Depends(get_db)):
 
-    for partida_id in historico_partida:
-        lista_jogadores = riot_api.get_lista_participantes(partida_id)
-        dados_jogador = riot_api.get_jogador_dados(lista_jogadores, puuid, partida_id)
+    jogador = db.query(models.Jogador).filter(
+        models.Jogador.nome_jogador == riot_api.nome_jogador
+    ).first()
 
-        # 1. cria um objeto Partida com dados puxados da API
-        nova_partida = models.Partida(**dados_jogador) #O FastAPI tem um atalho muito útil. Se as chaves do seu dicionário ('campeao', 'abates', etc.) forem exatamente iguais aos nomes dos campos no seu models.Partida, você pode usar o operador ** (dois asteriscos) para "desempacotar" o dicionário
-
-        print(f"Salvando dados para: {nova_partida.campeao}")
-
-        # 2. adiciona o objeto à sessão (prepara para salvar)
-        db.add(nova_partida)
-
-        # 3. confirma a transação (salva de verdade no banco)
+    if not jogador:
+        puuid = riot_api.get_puuid(riot_api.nome_jogador, riot_api.tag_line, riot_api.API_KEY)
+        jogador = models.Jogador(
+            puuid=puuid,
+            nome_jogador=riot_api.nome_jogador,
+            icone_id=0,
+        )
+        db.add(jogador)
         db.commit()
+        db.refresh(jogador)
 
-        # 4. atualiza o objeto com os dados do banco (com o ID gerado)
+    historico_partida = riot_api.get_partidas_id(jogador.puuid, riot_api.API_KEY, 5)
+    for partida_id in historico_partida:
+
+        partida_existente = db.query(models.Partida).filter(
+            models.Partida.partida_id == partida_id
+        ).first()
+
+        if partida_existente:
+            continue
+        
+        lista_jogadores = riot_api.get_lista_participantes(partida_id)
+        dados_jogador = riot_api.get_jogador_dados(lista_jogadores, jogador.puuid, partida_id)
+        nova_partida = models.Partida(**dados_jogador)
+        nova_partida.jogador_id = jogador.id
+
+        db.add(nova_partida)
+        db.commit()
         db.refresh(nova_partida)
 
     return {'status': 'Partidas sincronizadas com sucesso'}
 
 @app.post("/sincronizar-jogadores")
 def sincronizar_jogadores(jogador: schemas.JogadorCreate, db: Session = Depends(get_db)):
-    # cria um novo jogador a partir do schema e salva no banco de dados
     novo_jogador = models.Jogador(**jogador)
     db.add(novo_jogador)
     db.commit()
     db.refresh(novo_jogador)
     return {"status": "Jogador sincronizado com sucesso", "jogador_id": novo_jogador.id}
-        
-@app.get('/partidas') # criação da rota GET para adquirir as informações do banco de dados
-def ler_partidas(db: Session = Depends (get_db)):
+
+@app.get('/partidas')
+def ler_partidas(db: Session = Depends(get_db)):
     partidas = db.query(models.Partida).all()
     return partidas
