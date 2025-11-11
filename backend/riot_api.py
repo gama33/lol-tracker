@@ -18,13 +18,13 @@ APP_RATE_LIMIT_PER_2MIN = 100
 nome_jogador = 'tequila sunset'
 tag_line = '7585'
 
-class Region(str, Enum):
+class Regiao(str, Enum):
     AMERICAS = "americas"
     ASIA = "asia"
     EUROPE = "europe"
     SEA = "sea"
 
-class Plataform(str, Enum):
+class Plataforma(str, Enum):
     BR1 = "br1"
     EUN1 = "eun1"
     EUW1 = "euw1"
@@ -48,77 +48,263 @@ class RiotAPIException(Exception):
         self.status_code = status_code
         super().__init__(self.message)
 
+class RateLimitException(RiotAPIException):
+    def __init__(self, retry_after: int):
+        self.retry_after = retry_after
+        super().__init__(f"Rate limit excedido. Tente novamente em {retry_after} segundos", status_code=429)
 
+class NotFoundException(RiotAPIException):
+    def __init__(self, resouce: str):
+        super().__init__(f"recurso não encontrado: {resouce}", status_code=404)
 
+class UnauthorizedException(RiotAPIException):
+    def __init__(self):
+        super().__init__("API key invalida, expirada ou bloqueada", status_code=403)
 
+class SimpleRateLimiter:
+    def __init__(self, max_calls: int, period: int):
+        self.max_calls = max_calls
+        self.period = period
+        self.calls = []
 
-def get_puuid(nome_jogador: str, tag_line: str, API_KEY: str) -> str:
-    return requests.get(f"https://americas.api.riotgames.com/riot/account/v1/accounts/by-riot-id/{nome_jogador}/{tag_line}?api_key={API_KEY}").json().get('puuid')
+    def esperar_se_necessario(self):
+        now = time.time()
 
-def get_partidas_id(puuid: str, API_KEY: str, count: int) -> list:
-    return requests.get(f"https://americas.api.riotgames.com/lol/match/v5/matches/by-puuid/{puuid}/ids?api_key={API_KEY}&count={count}").json()
+        self.calls = [call_time for call_time in self.calls
+                      if now - call_time < self.period]
+        
+        if len(self.calls) >= self.max_calls:
+            sleep_time = self.period - (now - self.calls[0])
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+                self.calls = []
 
-def get_partida_info(matchId: str, API_KEY: str) -> list:
-    return requests.get(f"https://americas.api.riotgames.com/lol/match/v5/matches/{matchId}?api_key={API_KEY}").json()
+        self.calls.append(time.time())
 
-def get_lista_participantes(matchId: str) -> list:
-    return requests.get(f"https://americas.api.riotgames.com/lol/match/v5/matches/{matchId}?api_key={API_KEY}").json().get('metadata').get('participants')
+rate_limiter_second = SimpleRateLimiter(APP_RATE_LIMIT_PER_SECOND, 1)
+rate_limiter_2min = SimpleRateLimiter(APP_RATE_LIMIT_PER_2MIN, 120)
 
-def get_jogador_dados(lista_participantes: list, jogador_puuid: str, matchId: str) -> list:
+def _make_request(url: str, timeout: int = REQUEST_TIMEOUT, retry_count: int = 0) -> Dict:
+    rate_limiter_second.wait_if_needed()
+    rate_limiter_2min.wait_if_needed()
+
+    try:
+        response = requests.get(url, timeout=timeout)
+
+        if response.status_code == 200:
+            return response.json()
+        
+        if response.status_code == 404:
+            return NotFoundException(url)
+        
+        elif response.status_code == 401:
+            return RiotAPIException("API key não fornecida", status_code=401)
+        
+        elif response.status_code == 403:
+            return UnauthorizedException()
+        
+        elif response.status_code == 429:
+            retry_after = int(response.headers.get('Retry-After', 1))
+            raise RateLimitException(retry_after)
+        
+        elif response.status_code == 400:
+            raise RiotAPIException("requisição inválida - verifique os parâmetros", status_code=400)
+
+        elif response.status_code >= 500:
+            if retry_count < MAX_ENTRIES:
+                wait_time = RETRY_DELAY * (2 ** retry_count)
+                time.sleep(wait_time)
+                return _make_request(url, timeout, retry_count + 1)
+            else:
+                raise RiotAPIException(f"erro no servidor da riot (tentou {MAX_ENTRIES} vezes)", status_code=response.status_code)
+
+        else:
+            raise RiotAPIException(f"error http {response.status_code}: {response.text}", status_code=response.status_code)
+
+    except timeout:
+        if retry_count < MAX_ENTRIES:
+            wait_time = RETRY_DELAY * (2 ** retry_count)
+            time.sleep(wait_time)
+            return _make_request(url, timeout, retry_count + 1)
+        else:
+            raise RiotAPIException(f"timeout após {MAX_ENTRIES} tentativas: {url}")
+        
+    except RiotAPIException:
+        raise
+
+    except RequestException as e:
+        raise RiotAPIException(f"erro na requisição {str(e)}")
     
-    for index, puuid in enumerate(lista_participantes):
-        if puuid == jogador_puuid:
-            index_jogador = index
-            break
-    
-    dados_partida = get_partida_info(matchId, API_KEY)
-    dados_partida_info = dados_partida['info']
-    dados_partida_jogador = dados_partida_info['participants'][index_jogador]
+def _build_url(endpoint: str, region: str = "americas", **params) -> str:
+    base_url = f"https://{region}.api.riotgames.com"
 
-    partida_id = matchId
-    campeao = dados_partida_jogador['championName']
-    abates = dados_partida_jogador['kills']
-    mortes = dados_partida_jogador['deaths']
-    assistencias = dados_partida_jogador['assists']
-    cs = dados_partida_jogador['totalMinionsKilled']
-    resultado_boolean = dados_partida_jogador['win']
-    resultado = 'Vitória' if resultado_boolean else 'Derrota'
-    posicao = dados_partida_jogador['teamPosition']
-    dano_campeoes = dados_partida_jogador['totalDamageDealtToChampions']
-    kda = dados_partida_jogador.get('challenges', {}).get('kda', 0.0) 
-    pontuacao_visao = dados_partida_jogador['visionScore'] 
-    ouro_ganho = dados_partida_jogador['goldEarned']
-    cs_jungle = dados_partida_jogador['neutralMinionsKilled']
-    penta_kills = dados_partida_jogador['pentaKills']
-    quadra_kills = dados_partida_jogador['quadraKills']
-    double_kills = dados_partida_jogador['doubleKills']
-    fb_kill = dados_partida_jogador['firstBloodKill']
-    fb_assist = dados_partida_jogador['firstBloodAssist']
-    data_partida = dados_partida_info['gameCreation']
-    duracao_partida = dados_partida_info['gameDuration']
-    tipo_fila = dados_partida_info['queueId']
-    patch = dados_partida_info['gameVersion']
+    if 'api_key' not in params:
+        params['api_key'] = API_KEY
+
+    query_string = '&'.join([f"{k}={v}" for k, v in params.items() if v is not None])
+
+    return f"{base_url}{endpoint}?{query_string}"
+
+def get_puuid(nome_jogador: str, tag_line: str, api_key: Optional[str] = None, region: str = 'americas') -> str:
+    api_key = api_key or API_KEY
+    if not api_key:
+        raise RiotAPIException("API key não foi configurada")
+    
+    from urllib.parse import quote
+    nome_encoded = quote(nome_jogador)
+    url = _build_url(f"/riot/account/v1/accounts/by-riot-id/{nome_encoded}/{tag_line}", region=region, api_key=api_key)
+    data = _make_request(url)
+    puuid = data.get('puuid')
+    if not puuid:
+        raise RiotAPIException(f"PUUID não encontrado na resposta para {nome_jogador}#{tag_line}")
+        
+    return puuid
+
+def get_partidas_id(puuid: str, count: int = 20, start: int = 0, queue: Optional[int] = None, type: Optional[str] = None, api_key: Optional[str] = None, region: str = 'americas') -> List[str]:
+    api_key = api_key or API_KEY
+    if not api_key:
+        raise RiotAPIException('API key não configurada')
+
+    if count < 0:
+        count = 20
+    elif count > 100:
+        count = 100
+
+    params = {
+        'api_key': api_key,
+        'count': count,
+        'start': start
+    }
+
+    if queue is not None:
+        params['queue'] = queue
+    if type is not None:
+        params['type'] = type
+
+    url = _build_url(f"/lol/match/v5/matches/by-puuid/{puuid}/ids", region=region, **params)
+
+    matches = _make_request(url)
+
+    if not isinstance(matches, list):
+        raise RiotAPIException("resposta inesperada da API: esperava lista de partidas")
+
+    return matches
+
+def get_partida_info(match_id: str, api_key: Optional[str] = None, region: str = 'americas') -> Dict:
+    api_key = api_key or API_KEY
+    if not api_key:
+        raise RiotAPIException('API key não foi configurada')
+
+    url = _build_url( f"/lol/match/v5/matches/{match_id}", region=region, api_key=api_key)
+    data = _make_request(url)
+
+    if 'metadata' not in data or 'info' not in data:
+        raise RiotAPIException(f"respota da API incompleta para partida {match_id}")
+    
+    return data
+    
+def get_lista_participantes(match_id: str, api_key: Optional[str] = None, region: str = 'americas') -> List[str]:
+    data = get_partida_info(match_id, api_key, region)
+    
+    participantes = data.get('metadata', {}).get('participants', [])
+    
+    if not participantes:
+        raise RiotAPIException(
+            f"Lista de participantes vazia para partida {match_id}"
+        )
+    
+    if len(participantes) != 10:
+        raise RiotAPIException(
+            f"Número incorreto de participantes: esperado 10, recebido {len(participantes)}"
+        )
+    
+    return participantes
+
+def get_dados_partida(match_id: str, api_key: Optional[str] = None, region: str = 'americas') -> Dict[str, Any]:
+    data = get_partida_info(match_id, api_key, region)
+    info = data.get('info', {})
+
+    if not info:
+        raise RiotAPIException(f"informações da partida {match_id} não encontradas")
+
     return {
-        'partida_id': partida_id,
-        'campeao': campeao, 
-        'abates': abates, 
-        'mortes': mortes, 
-        'assistencias': assistencias, 
-        'cs': cs,
-        'resultado': resultado,
-        'data_partida': data_partida,
-        'duracao_partida': duracao_partida,
-        'tipo_fila': tipo_fila,
-        'patch': patch,
-        'posicao': posicao,
-        'dano_campeoes': dano_campeoes,
-        'kda': kda,
-        'pontuacao_visao': pontuacao_visao,
-        'ouro_ganho': ouro_ganho,
-        'cs_jungle': cs_jungle,
-        'penta_kills': penta_kills,
-        'quadra_kills': quadra_kills,
-        'double_kills': double_kills,
-        'fb_kill': fb_kill,
-        'fb_assist': fb_assist
+        'partida_id': match_id,
+        'data_partida': info.get('gameCreation', 0),
+        'duracao_partida': info.get('gameDuration', 0),
+        'tipo_fila': info.get('queueId', 0),
+        'patch': info.get('gameVersion', 'unknown'),
+    }
+
+def get_dados_participacao(match_id: str, jogador_puuid: str, api_key: Optional[str] = None, region: str = 'anemricas') -> Dict[str, Any]:
+    
+    data = get_partida_info(match_id, api_key, region)
+    participantes = data.get('info', {}).get('participants', [])
+    jogador_data = None
+    
+    for participante in participantes:
+        if participante.get('puuid') == jogador_puuid:
+            jogador_data = participante
+            break
+
+    if not jogador_data:
+        raise RiotAPIException(f"jogador {jogador_puuid} não encontrado na partida {match_id}")
+
+    return {
+        'campeao': jogador_data.get('championName', 'Unknown'),
+        'abates': jogador_data.get('kills', 0),
+        'mortes': jogador_data.get('deaths', 0),
+        'assistencias': jogador_data.get('assists', 0),
+        'cs': jogador_data.get('totalMinionsKilled', 0),
+        'resultado': jogador_data.get('win', False),  # Boolean!
+        'posicao': jogador_data.get('teamPosition', ''),
+        'dano_campeoes': jogador_data.get('totalDamageDealtToChampions', 0),
+        'kda': jogador_data.get('challenges', {}).get('kda', 0.0),
+        'pontuacao_visao': jogador_data.get('visionScore', 0),
+        'ouro_ganho': jogador_data.get('goldEarned', 0),
+        'cs_jungle': jogador_data.get('neutralMinionsKilled', 0),
+        'penta_kills': jogador_data.get('pentaKills', 0),
+        'quadra_kills': jogador_data.get('quadraKills', 0),
+        'double_kills': jogador_data.get('doubleKills', 0),
+        'fb_kill': jogador_data.get('firstBloodKill', False),
+        'fb_assist': jogador_data.get('firstBloodAssist', False)
+    }
+
+def get_dados_completos_partida(match_id: str, api_key: str, region: str = 'americas') -> Dict[str, Any]:
+    data = get_partida_info(match_id, api_key, region)
+    info = data['info']
+
+    partida = {
+        'partida_id': match_id,
+        'data_partida': info.get('gameCreation', 0),
+        'duracao_partida': info.get('gameDuration', 0),
+        'tipo_fila': info.get('queueId', 0),
+        'patch': info.get('gameVersion', 'unknown')
+    }
+
+    participacoes = []
+    for participante in info.get('participants', []):
+        participacoes.append({
+            'puuid': participante.get('puuid'),
+            'campeao': participante.get('championName', 'Unknown'),
+            'abates': participante.get('kills', 0),
+            'mortes': participante.get('deaths', 0),
+            'assistencias': participante.get('assists', 0),
+            'cs': participante.get('totalMinionsKilled', 0),
+            'resultado': participante.get('win', False),
+            'posicao': participante.get('teamPosition', ''),
+            'dano_campeoes': participante.get('totalDamageDealtToChampions', 0),
+            'kda': participante.get('challenges', {}).get('kda', 0.0),
+            'pontuacao_visao': participante.get('visionScore', 0),
+            'ouro_ganho': participante.get('goldEarned', 0),
+            'cs_jungle': participante.get('neutralMinionsKilled', 0),
+            'penta_kills': participante.get('pentaKills', 0),
+            'quadra_kills': participante.get('quadraKills', 0),
+            'double_kills': participante.get('doubleKills', 0),
+            'fb_kill': participante.get('firstBloodKill', False),
+            'fb_assist': participante.get('firstBloodAssist', False)
+        })
+    
+    return {
+        'partida': partida,
+        'participacoes': participacoes
     }
