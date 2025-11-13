@@ -308,3 +308,21 @@ def get_dados_completos_partida(match_id: str, api_key: str, region: str = 'amer
         'partida': partida,
         'participacoes': participacoes
     }
+
+def get_dados_summoner(puuid: str, api_key: Optional[str] = None, plataforma: str ='br1') -> Dict[str, Any]:
+    api_key = api_key or API_KEY
+    if not api_key:
+        raise RiotAPIException('API key não configurada')
+    
+    url = f"https://{plataforma}.api.riotgames.com/lol/summoner/v4/summoners/by-puuid/{puuid}?api_key={api_key}"
+
+    data = _make_request(url)
+
+    if not data:
+        raise RiotAPIException(f"Dados do summoner não encontrados para PUUID {puuid}")
+    
+    return {
+        'icone_id': data.get('profileIconId', 0),
+        'nivel': data.get('summonerLevel', 1),
+        'summoner_id': data.get('id', ''),
+    }
