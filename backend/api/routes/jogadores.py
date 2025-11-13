@@ -14,14 +14,9 @@ def listar_jogadores(
     limit: int = Query(50, ge=1, le=100, description="Limite de resultados"),
     db: Session = Depends(get_db)
 ):
-    jogador = jogador_crud.get_jogadores(db, limit=limit)
-
-    response = schemas.JogadorResponse.model_validate(jogador)
-    response.total_partidas = jogador.total_partidas
-    response.total_vitorias = jogador.total_vitorias
-    response.winrate = jogador.winrate
-
-    return response
+    """Lista todos os jogadores cadastrados"""
+    jogadores = jogador_crud.get_jogadores(db, limit=limit)
+    return jogadores
 
 @router.get("/{jogador_id}/estatisticas", response_model=schemas.EstatisticasJogador)
 def obter_estatisticas(

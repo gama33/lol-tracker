@@ -1,12 +1,8 @@
 import './App.css'
-import PerfilStatus from './components/PerfilStatus'
+import Dashboard from './pages/Dashboard'
 
 function App() {
-  return (
-    <div className='bg-gray-900 text-white min-h-screen'>
-      <PerfilStatus />  
-    </div>
-  )
+  return <Dashboard />
 }
 
 export default App
