@@ -64,8 +64,9 @@ def drop_all_tables():
 
 def check_db_connection() -> bool:
     try:
+        from sqlalchemy import text
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         return True
     except Exception as e:
         print(f"Erro na conexão: {e}")
