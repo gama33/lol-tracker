@@ -85,8 +85,8 @@ rate_limiter_second = SimpleRateLimiter(APP_RATE_LIMIT_PER_SECOND, 1)
 rate_limiter_2min = SimpleRateLimiter(APP_RATE_LIMIT_PER_2MIN, 120)
 
 def _make_request(url: str, timeout: int = REQUEST_TIMEOUT, retry_count: int = 0) -> Dict:
-    rate_limiter_second.wait_if_needed()
-    rate_limiter_2min.wait_if_needed()
+    rate_limiter_second.esperar_se_necessario()
+    rate_limiter_2min.esperar_se_necessario()
 
     try:
         response = requests.get(url, timeout=timeout)
@@ -95,13 +95,13 @@ def _make_request(url: str, timeout: int = REQUEST_TIMEOUT, retry_count: int = 0
             return response.json()
         
         if response.status_code == 404:
-            return NotFoundException(url)
+            raise NotFoundException(url)
         
         elif response.status_code == 401:
-            return RiotAPIException("API key não fornecida", status_code=401)
+            raise RiotAPIException("API key não fornecida", status_code=401)
         
         elif response.status_code == 403:
-            return UnauthorizedException()
+            raise UnauthorizedException()
         
         elif response.status_code == 429:
             retry_after = int(response.headers.get('Retry-After', 1))

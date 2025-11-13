@@ -245,3 +245,55 @@ class EstatisticasJogador(BaseSchema):
     top_campeoes: Optional[list[dict]] = Field(None, description="top 5 campeões mais jogados")
     posicoes: Optional[dict] = Field(None, description="distribuição por posição")
 
+class HistoricoPartidas(BaseSchema):
+    total: int = Field(ge=0, description="total de partidas")
+    pagina: int = Field(ge=1, description="página atual")
+    por_pagina: int = Field(ge=1, le=100, description="itens por página")
+    partidas: List[PartidaDetalhada] = Field(default_factory=list)
+
+class ErrorResponse(BaseSchema):
+    error: str = Field(..., description="tipo do erro")
+    message: str = Field(..., description="mensagem de erro")
+    details: Optional[dict] = Field(None, description="detalhes adicionais")
+    timestamp: datetime = Field(default_factory=datetime.timezone.utc)
+
+class SuccessResponse(BaseSchema):
+    success: bool = Field(default=True)
+    message: str
+    data: Optional[dict] = None
+
+class FiltroPartidas(BaseSchema):
+    jogador_id: Optional[int] = Field(None, gt=0)
+    tipo_fila: Optional[int] = None
+    data_inicio: Optional[datetime] = Field(None, description="data inicial (inclusive)")
+    data_fim: Optional[datetime] = Field(None, description="data final (inclusive)")
+    apenas_vitorias: Optional[bool] = None
+    campeo: Optional[str] = None
+    posicao: Optional[str] = None
+
+    pagina: int = Field(default=1, ge=1)
+    por_pagina: int = Field(default=20, ge=1, le=100)
+
+    ordenar_por: str = Field(default="data_partida", description="campo para ordenação")
+    ordem_desc: bool = Field(default=True, description="ordem decrescente")
+
+    @field_validator
+    @classmethod
+    def validate_datas(cls, v, info):
+        data_inicio = info.data.get('data_inicio')
+        if v and data_inicio and v < data_inicio:
+            raise ValueError("data_fim deve ser maior ou igual a data_inicio")
+        return v
+
+class FiltroEstatistica(BaseSchema):
+    jogador_id: int = Field(..., gt=0)
+    tipo_fila: Optional[int] = None
+    campeao: Optional[str] = None
+    posicao: Optional[str] = None
+    data_inicio: Optional[datetime] = None
+    data_fim: Optional[datetime] = None
+    temporada: Optional[int] = Field(None, ge=2009, description="ano da temporada")
+
+JogadorDetalhado.model_rebuild()
+PartidaDetalhada.model_rebuild()
+ParticipacaoDetalhada.model_rebuild()  
