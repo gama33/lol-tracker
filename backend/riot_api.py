@@ -54,12 +54,12 @@ class RateLimitException(RiotAPIException):
         super().__init__(f"Rate limit excedido. Tente novamente em {retry_after} segundos", status_code=429)
 
 class NotFoundException(RiotAPIException):
-    def __init__(self, resouce: str):
-        super().__init__(f"recurso não encontrado: {resouce}", status_code=404)
+    def __init__(self, resource: str):
+        super().__init__(f"Recurso não encontrado: {resource}", status_code=404)
 
 class UnauthorizedException(RiotAPIException):
     def __init__(self):
-        super().__init__("API key invalida, expirada ou bloqueada", status_code=403)
+        super().__init__("API Key inválida, expirada ou bloqueada", status_code=403)
 
 class SimpleRateLimiter:
     def __init__(self, max_calls: int, period: int):
@@ -108,7 +108,7 @@ def _make_request(url: str, timeout: int = REQUEST_TIMEOUT, retry_count: int = 0
             raise RateLimitException(retry_after)
         
         elif response.status_code == 400:
-            raise RiotAPIException("requisição inválida - verifique os parâmetros", status_code=400)
+            raise RiotAPIException("Requisição inválida - verifique os parâmetros", status_code=400)
 
         elif response.status_code >= 500:
             if retry_count < MAX_ENTRIES:
@@ -116,24 +116,24 @@ def _make_request(url: str, timeout: int = REQUEST_TIMEOUT, retry_count: int = 0
                 time.sleep(wait_time)
                 return _make_request(url, timeout, retry_count + 1)
             else:
-                raise RiotAPIException(f"erro no servidor da riot (tentou {MAX_ENTRIES} vezes)", status_code=response.status_code)
+                raise RiotAPIException(f"Erro no servidor da Riot (tentou {MAX_ENTRIES} vezes)", status_code=response.status_code)
 
         else:
-            raise RiotAPIException(f"error http {response.status_code}: {response.text}", status_code=response.status_code)
+            raise RiotAPIException(f"Erro HTTP {response.status_code}: {response.text}", status_code=response.status_code)
 
-    except timeout:
+    except Timeout:
         if retry_count < MAX_ENTRIES:
             wait_time = RETRY_DELAY * (2 ** retry_count)
             time.sleep(wait_time)
             return _make_request(url, timeout, retry_count + 1)
         else:
-            raise RiotAPIException(f"timeout após {MAX_ENTRIES} tentativas: {url}")
+            raise RiotAPIException(f"Timeout após {MAX_ENTRIES} tentativas: {url}")
         
     except RiotAPIException:
         raise
 
     except RequestException as e:
-        raise RiotAPIException(f"erro na requisição {str(e)}")
+        raise RiotAPIException(f"Erro na requisição: {str(e)}")
     
 def _build_url(endpoint: str, region: str = "americas", **params) -> str:
     base_url = f"https://{region}.api.riotgames.com"
@@ -148,7 +148,7 @@ def _build_url(endpoint: str, region: str = "americas", **params) -> str:
 def get_puuid(nome_jogador: str, tag_line: str, api_key: Optional[str] = None, region: str = 'americas') -> str:
     api_key = api_key or API_KEY
     if not api_key:
-        raise RiotAPIException("API key não foi configurada")
+        raise RiotAPIException("API Key não configurada")
     
     from urllib.parse import quote
     nome_encoded = quote(nome_jogador)
@@ -163,7 +163,7 @@ def get_puuid(nome_jogador: str, tag_line: str, api_key: Optional[str] = None, r
 def get_partidas_id(puuid: str, count: int = 20, start: int = 0, queue: Optional[int] = None, type: Optional[str] = None, api_key: Optional[str] = None, region: str = 'americas') -> List[str]:
     api_key = api_key or API_KEY
     if not api_key:
-        raise RiotAPIException('API key não configurada')
+        raise RiotAPIException('API Key não configurada')
 
     if count < 0:
         count = 20
@@ -186,20 +186,20 @@ def get_partidas_id(puuid: str, count: int = 20, start: int = 0, queue: Optional
     matches = _make_request(url)
 
     if not isinstance(matches, list):
-        raise RiotAPIException("resposta inesperada da API: esperava lista de partidas")
+        raise RiotAPIException("Resposta inesperada da API: esperava lista de partidas")
 
     return matches
 
 def get_partida_info(match_id: str, api_key: Optional[str] = None, region: str = 'americas') -> Dict:
     api_key = api_key or API_KEY
     if not api_key:
-        raise RiotAPIException('API key não foi configurada')
+        raise RiotAPIException('API Key não configurada')
 
     url = _build_url( f"/lol/match/v5/matches/{match_id}", region=region, api_key=api_key)
     data = _make_request(url)
 
     if 'metadata' not in data or 'info' not in data:
-        raise RiotAPIException(f"respota da API incompleta para partida {match_id}")
+        raise RiotAPIException(f"Resposta da API incompleta para partida {match_id}")
     
     return data
     
@@ -225,7 +225,7 @@ def get_dados_partida(match_id: str, api_key: Optional[str] = None, region: str 
     info = data.get('info', {})
 
     if not info:
-        raise RiotAPIException(f"informações da partida {match_id} não encontradas")
+        raise RiotAPIException(f"Informações da partida {match_id} não encontradas")
 
     return {
         'partida_id': match_id,
@@ -235,7 +235,7 @@ def get_dados_partida(match_id: str, api_key: Optional[str] = None, region: str 
         'patch': info.get('gameVersion', 'unknown'),
     }
 
-def get_dados_participacao(match_id: str, jogador_puuid: str, api_key: Optional[str] = None, region: str = 'anemricas') -> Dict[str, Any]:
+def get_dados_participacao(match_id: str, jogador_puuid: str, api_key: Optional[str] = None, region: str = 'americas') -> Dict[str, Any]:
     
     data = get_partida_info(match_id, api_key, region)
     participantes = data.get('info', {}).get('participants', [])
@@ -247,7 +247,7 @@ def get_dados_participacao(match_id: str, jogador_puuid: str, api_key: Optional[
             break
 
     if not jogador_data:
-        raise RiotAPIException(f"jogador {jogador_puuid} não encontrado na partida {match_id}")
+        raise RiotAPIException(f"Jogador {jogador_puuid} não encontrado na partida {match_id}")
 
     return {
         'campeao': jogador_data.get('championName', 'Unknown'),
