@@ -50,10 +50,10 @@ class JogadorBase(BaseSchema):
     )
 
     nivel: Optional[int] = Field(
-        default=0,
+        default=1,
         ge=1,
         le=9999,
-        description="nivel do jogador",
+        description="Nível do invocador"
     )
 
 class JogadorCreate(BaseSchema):
@@ -71,24 +71,24 @@ class JogadorCreate(BaseSchema):
         description="tag do jogador (ex: BR1, NA1)"
     )
 
-@field_validator('nome_jogador')
-@classmethod
-def validate_nome(cls, v: str) -> str:
-    if not v.strip():
-        raise ValueError("nome não pode ser vazio")
-    return v.strip()
+    @field_validator('nome_jogador')
+    @classmethod
+    def validate_nome(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("nome não pode ser vazio")
+        return v.strip()
 
-@field_validator
-@classmethod
-def validate_tag(cls, v: str) -> str:
-    tag = v.strip().upper()
-    if not tag.isalnum():
-        raise ValueError("tag deve conter apenas letras e números")
-    return tag
+    @field_validator('tag_line')
+    @classmethod
+    def validate_tag(cls, v: str) -> str:
+        tag = v.strip().upper()
+        if not tag.isalnum():
+            raise ValueError("tag deve conter apenas letras e números")
+        return tag
 
 class JogadorUpdate(BaseSchema):
-    nome_jogador: Optional[str] = Field(None, min_length=1, max_length=100),
-    icone_id: Optional[int] = Field(None, ge=0),
+    nome_jogador: Optional[str] = Field(None, min_length=1, max_length=100)
+    icone_id: Optional[int] = Field(None, ge=0)
     nivel: Optional[int] = Field(None, ge=1, le=9999)
 
 class JogadorResponse(JogadorBase):
@@ -98,7 +98,7 @@ class JogadorResponse(JogadorBase):
     updated_at: datetime
 
     total_partidas: Optional[int] = Field(None, description="total de partidas jogadas")
-    tota_vitorias: Optional[int] = Field(None, description="total de vitórias")
+    total_vitorias: Optional[int] = Field(None, description="total de vitórias")
     winrate: Optional[float] = Field(None, ge=0.0, le=1.0, description="taxa de vitória (0.0-1.0)")
 
 class JogadorDetalhado(JogadorResponse):
@@ -122,6 +122,10 @@ class PartidaBase(BaseSchema):
         description="duração em segundos"
     )
     tipo_fila: int = Field(
+        ...,
+        description="Queue ID (420=ranked solo, 440=flex, etc)"
+    )
+    patch: str = Field(
         ...,
         pattern=r'^\d+\.\d+',
         description="versão do jogo"
@@ -168,7 +172,7 @@ class ParticipacaoBase(BaseSchema):
         if v is None or v == '':
             return None
         
-        posicoes_validas = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY', 'MID', 'ADC', 'SUPPORT']
+        posicoes_validas = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
         v_upper = v.upper()
 
         mapa = {
@@ -182,7 +186,7 @@ class ParticipacaoBase(BaseSchema):
         v_upper = mapa.get(v_upper, v_upper)
 
         if v_upper not in posicoes_validas:
-            raise ValueError(f"posição invalida. Use: {', '.join(posicoes_validas)}")
+            raise ValueError(f"Posição inválida. Use: {', '.join(posicoes_validas)}")
         
         return v_upper
     
@@ -255,7 +259,7 @@ class ErrorResponse(BaseSchema):
     error: str = Field(..., description="tipo do erro")
     message: str = Field(..., description="mensagem de erro")
     details: Optional[dict] = Field(None, description="detalhes adicionais")
-    timestamp: datetime = Field(default_factory=datetime.timezone.utc)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
 
 class SuccessResponse(BaseSchema):
     success: bool = Field(default=True)
@@ -268,7 +272,7 @@ class FiltroPartidas(BaseSchema):
     data_inicio: Optional[datetime] = Field(None, description="data inicial (inclusive)")
     data_fim: Optional[datetime] = Field(None, description="data final (inclusive)")
     apenas_vitorias: Optional[bool] = None
-    campeo: Optional[str] = None
+    campeao: Optional[str] = None
     posicao: Optional[str] = None
 
     pagina: int = Field(default=1, ge=1)
@@ -277,7 +281,7 @@ class FiltroPartidas(BaseSchema):
     ordenar_por: str = Field(default="data_partida", description="campo para ordenação")
     ordem_desc: bool = Field(default=True, description="ordem decrescente")
 
-    @field_validator
+    @field_validator('data_fim')
     @classmethod
     def validate_datas(cls, v, info):
         data_inicio = info.data.get('data_inicio')
@@ -285,7 +289,7 @@ class FiltroPartidas(BaseSchema):
             raise ValueError("data_fim deve ser maior ou igual a data_inicio")
         return v
 
-class FiltroEstatistica(BaseSchema):
+class FiltroEstatisticas(BaseSchema):
     jogador_id: int = Field(..., gt=0)
     tipo_fila: Optional[int] = None
     campeao: Optional[str] = None

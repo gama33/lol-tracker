@@ -12,10 +12,10 @@ class Jogador(Base):
     icone_id = Column(Integer, default=0)
     nivel = Column(Integer, default=1)
 
-    created_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=datetime.now(datetime.timezone.utc), onupdate=datetime.now(datetime.timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     
-    participacao = relationship("Participacao", back_populates="jogador", cascade="all, delete-orphan", lazy="dynamic")
+    participacoes = relationship("Participacao", back_populates="jogador", cascade="all, delete-orphan", lazy="dynamic")
 
     def __repr__(self):
         return f"<Jogador(id={self.id}, nome='{self.nome_jogador}', puuid='{self.puuid[:8]}...')>"
@@ -40,14 +40,14 @@ class Partida(Base):
     
     id = Column(Integer, primary_key=True, index=True) 
     partida_id = Column(String, unique=True, index=True, nullable=False) 
-    data_partida = Column(BigInteger, index = True, nullable=False) 
+    data_partida = Column(BigInteger, index=True, nullable=False) 
     duracao_partida = Column(Integer, index=True, nullable=False) 
     tipo_fila = Column(Integer, index=True, nullable=False) 
     patch = Column(String, nullable=False)
 
-    created_at = Column(datetime, default=datetime.timezone.utc)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    participacao = relationship(
+    participacoes = relationship(
         "Participacao", 
         back_populates="partida",
         cascade="all, delete-orphan",
@@ -55,20 +55,20 @@ class Partida(Base):
     )
 
     __table_args__ = (
-        Index('idx_partida_tipo_data', 'tipo_fila', 'data_partida')
+        Index('idx_partida_tipo_data', 'tipo_fila', 'data_partida'),
     )
 
     def __repr__(self):
-        return f"<Partida(id={self.partida_id}, tipo_fila={self.tipo_fila})>"
+        return f"<Partida(id='{self.partida_id}', tipo_fila={self.tipo_fila})>"
 
-    @validates('tipo_fila')
+    @validates('duracao_partida')
     def validate_duracao(self, key, value):
         if value < 0:
-            raise ValueError("duração da partida deve ser positiva")
+            raise ValueError("Duração da partida deve ser positiva")
         return value
     
     @validates('tipo_fila')
-    def validates_tipo_fila(self, key, value):
+    def validate_tipo_fila(self, key, value):
         filas_validas = [
             0,    # Custom
             400,  # Normal Draft
@@ -86,12 +86,13 @@ class Partida(Base):
             1300, # Nexus Blitz
             1400, # Ultimate Spellbook
         ]
-        if value in filas_validas and value != 0:
+        if value not in filas_validas and value != 0:
             import warnings
-            warnings.warn(f"tipo de fila desconhecido: {value}")
+            warnings.warn(f"Tipo de fila desconhecido: {value}")
+        return value
 
     @property
-    def duracao_formatado(self):
+    def duracao_formatada(self):
         minutos = self.duracao_partida // 60
         segundos = self.duracao_partida % 60
         return f"{minutos}:{segundos:02d}"
@@ -139,99 +140,99 @@ class Participacao(Base):
     fb_kill = Column(Boolean, default=False, nullable=False) 
     fb_assist = Column(Boolean, default=False, nullable=False)
 
-    created_at = Column(datetime, default=datetime.timezone.utc)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     
     jogador = relationship("Jogador", back_populates="participacoes")
     partida = relationship("Partida", back_populates="participacoes")
 
     __table_args__ = (
         UniqueConstraint('jogador_id', 'partida_id', name='uix_jogador_partida'),
-        
         Index('idx_jogador_resultado', 'jogador_id', 'resultado'),
         Index('idx_jogador_campeao', 'jogador_id', 'campeao'),
         Index('idx_posicao_resultado', 'posicao', 'resultado'),
     )
 
     def __repr__(self):
-        resultado_str = "vitória" if self.resultado else "derrota"
+        resultado_str = "Vitória" if self.resultado else "Derrota"
         return (f"<Participacao(jogador_id={self.jogador_id}, campeao='{self.campeao}', {resultado_str})>")
     
-@validates('abates', 'mortes', 'assistencias', 'cs', 'dano_campeoes', 'pontuacao_visao', 'ouro_gahno', 'cs_jungles')
-def validate_positive(self, key, value):
-    if value < 0:
-        raise ValueError(f"{key} não pode ser negativo")
-    return value
+    @validates('abates', 'mortes', 'assistencias', 'cs', 'dano_campeoes', 'pontuacao_visao', 'ouro_ganho', 'cs_jungle')
+    def validate_positive(self, key, value):
+        if value < 0:
+            raise ValueError(f"{key} não pode ser negativo")
+        return value
 
-@validates('kda')
-def validate_kda(sel, key, value):
-    if value < 0:
-        raise ValueError("KDA não pode ser negativo")
-    if value > 100:
-        import warnings
-        warnings.warn(f"KDA muito alto: {value}")
-    return value
+    @validates('kda')
+    def validate_kda(self, key, value):
+        if value < 0:
+            raise ValueError("KDA não pode ser negativo")
+        if value > 100:
+            import warnings
+            warnings.warn(f"KDA muito alto: {value}")
+        return value
 
-@validates('posicao')
-def validate_posicao(self, key, value):
-    if not value:
-        return None
+    @validates('posicao')
+    def validate_posicao(self, key, value):
+        if not value:
+            return None
 
-    posicoes_validas = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY', 'MID', 'ADC', 'SUPPORT']
-    value_upper = value.upper()
+        posicoes_validas = ['TOP', 'JUNGLE', 'MIDDLE', 'BOTTOM', 'UTILITY']
+        value_upper = value.upper()
 
-    normalizacao = {
-        'MID': 'MIDDLE',
-        'ADC': 'BOTTOM',
-        'SUPPORT': 'UTILITY',
-        'SUP': 'UTILITY'
-    }
+        normalizacao = {
+            'MID': 'MIDDLE',
+            'ADC': 'BOTTOM',
+            'SUPPORT': 'UTILITY',
+            'SUP': 'UTILITY'
+        }
 
-    value_upper = normalizacao.get(value_upper, value_upper)
+        value_upper = normalizacao.get(value_upper, value_upper)
 
-    if value_upper not in posicoes_validas:
-        import warnings
-        warnings.warn(f"posicao desconhecida: {value}")
+        if value_upper not in posicoes_validas:
+            import warnings
+            warnings.warn(f"Posição desconhecida: {value}")
+        
+        return value_upper
 
-@property
-def kda_calculado(self):
-    if self.mortes == 0:
-        return float(self.abates + self.assistencias)
-    return (self.abates + self.assistencias) / self.mortes
+    @property
+    def kda_calculado(self):
+        if self.mortes == 0:
+            return float(self.abates + self.assistencias)
+        return (self.abates + self.assistencias) / self.mortes
 
-@property
-def kill_participation(self):
-    return self.abates + self.assistencias
+    @property
+    def kill_participation(self):
+        return self.abates + self.assistencias
 
-@property
-def resultado_texto(self):
-    return 'vitória' if self.resultado else 'derrota'
+    @property
+    def resultado_texto(self):
+        return 'Vitória' if self.resultado else 'Derrota'
 
-@property
-def cs_total(self):
-    return self.cs + self.cs_jungle
+    @property
+    def cs_total(self):
+        return self.cs + self.cs_jungle
 
-@property
-def cs_por_minuto(self):
-    if self.partida and self.partida.duracao_partida > 0:
-        minutos = self.partida.duracao_partida / 60
-        return self.cs_total / minutos
-    return 0.0
+    @property
+    def cs_por_minuto(self):
+        if self.partida and self.partida.duracao_partida > 0:
+            minutos = self.partida.duracao_partida / 60
+            return self.cs_total / minutos
+        return 0.0
 
-def to_dict(self):
-    return {
-        'id': self.id,
-        'jogador_id': self.jogador_id,
-        'partida_id': self.partida_id,
-        'campeao': self.campeao,
-        'abates': self.abates,
-        'mortes': self.mortes,
-        'assistencias': self.assistencias,
-        'cs': self.cs,
-        'resultado': self.resultado,
-        'posicao': self.posicao,
-        'kda': self.kda,
-        'dano_campeoes': self.dano_campeoes,
-        'pontuacao_visao': self.pontuacao_visao,
-        'ouro_ganho': self.ouro_ganho,
-    }
-
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'jogador_id': self.jogador_id,
+            'partida_id': self.partida_id,
+            'campeao': self.campeao,
+            'abates': self.abates,
+            'mortes': self.mortes,
+            'assistencias': self.assistencias,
+            'cs': self.cs,
+            'resultado': self.resultado,
+            'posicao': self.posicao,
+            'kda': self.kda,
+            'dano_campeoes': self.dano_campeoes,
+            'pontuacao_visao': self.pontuacao_visao,
+            'ouro_ganho': self.ouro_ganho,
+        }
