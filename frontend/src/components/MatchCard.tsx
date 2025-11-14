@@ -19,10 +19,22 @@ export const MatchCard = ({ partida }: MatchCardProps) => {
     return (
         <div className={`flex flex-col md:flex-row items-center justify-between p-4 border ${cardColorClass} transition-all duration-300 hover:shadow-[0_0_15px_rgba(0,255,0,0.7)] hover:scale-[1.01]`}>
             <div className="flex items-center gap-4 mb-4 md:mb-0">
-                {/* Champion Icon (Placeholder) */}
-                <div className="w-12 h-12 bg-gray-700 rounded-full flex items-center justify-center text-xs font-bold">
-                    {participacao.campeao.slice(0, 2).toUpperCase()}
-                </div>
+                {/* Champion Icon */}
+                {participacao.campeao_icone_url ? (
+                    <img
+                        src={participacao.campeao_icone_url}
+                        alt={participacao.campeao}
+                        className="w-12 h-12 border border-[#00FF00]"
+                        onError={(e) => {
+                            e.currentTarget.onerror = null; // prevents looping
+                            e.currentTarget.src = `https://ddragon.leagueoflegends.com/cdn/14.1.1/img/champion/Aatrox.png`; // Fallback image
+                        }}
+                    />
+                ) : (
+                    <div className="w-12 h-12 bg-gray-700 flex items-center justify-center text-xs font-bold">
+                        {participacao.campeao.slice(0, 2).toUpperCase()}
+                    </div>
+                )}
                 <div>
                     <div className="text-white font-bold text-lg">{participacao.campeao}</div>
                     <div className={`text-sm ${textColorClass}`}>

@@ -10,7 +10,7 @@ def buscar_ou_criar_jogador(
     nome_jogador: str,
     tag_line: str
 ) -> models.Jogador:
-    jogador = jogador_crud.get_jogador_by_nome(db, nome_jogador)
+    jogador = jogador_crud.get_jogador_by_nome(db, nome_jogador, tag_line)
 
     if jogador:
         try:
@@ -35,11 +35,12 @@ def buscar_ou_criar_jogador(
             db,
             puuid=puuid,
             nome_jogador=nome_jogador,
+            tag_line=tag_line,
             icone_id=dados_summoner['icone_id'],
             nivel=dados_summoner['nivel']
         )
 
-        return jogador
+        return novo_jogador
 
     except riot_api.RiotAPIException as e:
         raise HTTPException(

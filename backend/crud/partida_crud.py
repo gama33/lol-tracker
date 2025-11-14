@@ -84,3 +84,21 @@ def get_participacoes_by_jogador(
         )
 
     return query.all()
+
+def create_participacao(
+    db: Session,
+    jogador_id: int,
+    partida_id: int,
+    dados_participacao: dict
+) -> models.Participacao:
+    
+    participacao = models.Participacao(
+        jogador_id=jogador_id,
+        partida_id=partida_id,
+        **dados_participacao
+    )
+
+    db.add(participacao)
+    db.commit()
+    db.refresh(participacao)
+    return participacao
