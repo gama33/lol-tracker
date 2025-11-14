@@ -18,6 +18,7 @@ export interface Partida {
   tipo_fila: number;
   patch: string;
   criado_em: string;
+  participacao?: Participacao;
 }
 
 export interface Participacao {
