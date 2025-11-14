@@ -17,7 +17,6 @@ Uma das intenções neste projeto é adquirir boas práticas de desenvolvimento,
 
 ## Rodando localmente
 
-Clone o projeto
 
 1.  Clone o repositório e entre na pasta principal:
 ```
