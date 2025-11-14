@@ -15,13 +15,22 @@ def listar_partidas(
     limit: int = Query(20, ge=1, le=100, description="Limite de resultados"),
     db: Session = Depends(get_db)
 ):
-    partidas = partida_crud.get_partidas(
+    results = partida_crud.get_partidas(
         db,
         jogador_id=jogador_id,
         tipo_fila=tipo_fila,
         limit=limit
     )
-    return partidas
+
+    if jogador_id:
+        partidas_com_participacao = []
+        for partida, participacao in results:
+            partida_dto = schemas.PartidaResponse.from_orm(partida)
+            partida_dto.participacao = schemas.ParticipacaoResponse.from_orm(participacao)
+            partidas_com_participacao.append(partida_dto)
+        return partidas_com_participacao
+    
+    return results
 
 @router.get("/{partida_id}", response_model=schemas.ParticipacaoDetalhada)
 def obter_partida(

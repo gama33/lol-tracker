@@ -19,14 +19,14 @@ def get_partidas(
     tipo_fila: Optional[int] = None,
     skip: int = 0,
     limit: int = 20
-) -> List[models.Partida]:
+) -> List[models.Partida] | List[tuple[models.Partida, models.Participacao]]:
     
-    query = db.query(models.Partida)
-
     if jogador_id:
-        query = query.join(models.Participacao).filter(
-            models.Participacao.jogador_id == jogador_id
-        )
+        query = db.query(models.Partida, models.Participacao)\
+            .join(models.Participacao, models.Partida.id == models.Participacao.partida_id)\
+            .filter(models.Participacao.jogador_id == jogador_id)
+    else:
+        query = db.query(models.Partida)
 
     if tipo_fila:
         query = query.filter(models.Partida.tipo_fila == tipo_fila)
