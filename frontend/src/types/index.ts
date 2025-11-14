@@ -2,6 +2,7 @@ export interface Jogador {
   id: number;
   puuid: string;
   nome_jogador: string;
+  tag_line?: string;
   icone_id: number;
   nivel: number;
   criado_em: string;
@@ -26,6 +27,7 @@ export interface Participacao {
   jogador_id: number;
   partida_id: number;
   campeao: string;
+  campeao_icone_url?: string;
   abates: number;
   mortes: number;
   assistencias: number;

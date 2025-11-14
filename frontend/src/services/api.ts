@@ -26,9 +26,22 @@ export const apiService = {
         return data;
     },
 
+    async getJogadorByNome(nome: string, tagLine?: string): Promise<Jogador> {
+        const params = new URLSearchParams();
+        if (tagLine) {
+            params.append('tag_line', tagLine);
+        }
+        params.append('_', new Date().getTime().toString());
+        const { data } = await api.get(`/jogadores/by-name/${nome}?${params}`);
+        return data;
+    },
+
     async obterEstatisticas(id: number, tipoFila?: number): Promise<EstatisticasJogador> {
-        const params = tipoFila ? `?tipo_fila=${tipoFila}` : '';
-        const { data } = await api.get(`/jogadores/${id}/estatisticas${params}`);
+        const params = new URLSearchParams();
+        if (tipoFila) params.append('tipo_fila', tipoFila.toString());
+        params.append('_', new Date().getTime().toString());
+        
+        const { data } = await api.get(`/jogadores/${id}/estatisticas?${params}`);
         return data;
     },
 
@@ -37,6 +50,7 @@ export const apiService = {
         if (jogadorId) params.append('jogador_id', jogadorId.toString());
         if (tipoFila) params.append('tipo_fila', tipoFila.toString());
         params.append('limit', limit.toString());
+        params.append('_', new Date().getTime().toString());
 
         const { data } = await api.get(`/partidas?${params}`);
         return data;

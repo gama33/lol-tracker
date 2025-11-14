@@ -8,10 +8,11 @@ def get_jogador_by_id(db: Session, jogador_id: int) -> Optional[models.Jogador]:
         models.Jogador.id == jogador_id
     ).first()
 
-def get_jogador_by_nome(db: Session, nome_jogador: str) -> Optional[models.Jogador]:
-    return db.query(models.Jogador).filter(
-        models.Jogador.nome_jogador == nome_jogador
-    ).first()
+def get_jogador_by_nome(db: Session, nome_jogador: str, tag_line: Optional[str] = None) -> Optional[models.Jogador]:
+    query = db.query(models.Jogador).filter(models.Jogador.nome_jogador == nome_jogador)
+    if tag_line:
+        query = query.filter(models.Jogador.tag_line == tag_line)
+    return query.first()
 
 def get_jogador_by_puuid(db: Session, puuid: str) -> Optional[models.Jogador]:
     return db.query(models.Jogador).filter(
@@ -25,6 +26,7 @@ def create_jogador(
     db: Session,
     puuid: str,
     nome_jogador: str,
+    tag_line: str,
     icone_id: int,
     nivel: int
 ) -> models.Jogador:
@@ -32,6 +34,7 @@ def create_jogador(
     jogador = models.Jogador(
         puuid=puuid,
         nome_jogador=nome_jogador,
+        tag_line=tag_line,
         icone_id=icone_id,
         nivel=nivel
     )

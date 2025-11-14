@@ -8,7 +8,8 @@ class Jogador(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     puuid = Column(String, unique=True, index=True, nullable=False)
-    nome_jogador = Column(String, nullable=False)
+    nome_jogador = Column(String, nullable=False, index=True)
+    tag_line = Column(String, nullable=True, index=True)
     icone_id = Column(Integer, default=0)
     nivel = Column(Integer, default=1)
 
@@ -17,8 +18,12 @@ class Jogador(Base):
     
     participacoes = relationship("Participacao", back_populates="jogador", cascade="all, delete-orphan", lazy="dynamic")
 
+    __table_args__ = (
+        UniqueConstraint('nome_jogador', 'tag_line', name='uix_nome_tag'),
+    )
+
     def __repr__(self):
-        return f"<Jogador(id={self.id}, nome='{self.nome_jogador}', puuid='{self.puuid[:8]}...')>"
+        return f"<Jogador(id={self.id}, nome='{self.nome_jogador}#{self.tag_line}', puuid='{self.puuid[:8]}...')>"
     
     @property
     def total_partidas(self):

@@ -42,6 +42,7 @@ class JogadorBase(BaseSchema):
         description="Riot ID do jogador",
         examples=["Hide on bush", "Faker"]
     )
+    tag_line: Optional[str] = Field(None, description="Tag do jogador")
 
     icone_id: Optional[int] = Field(
         default=0,
@@ -88,6 +89,7 @@ class JogadorCreate(BaseSchema):
 
 class JogadorUpdate(BaseSchema):
     nome_jogador: Optional[str] = Field(None, min_length=1, max_length=100)
+    tag_line: Optional[str] = Field(None)
     icone_id: Optional[int] = Field(None, ge=0)
     nivel: Optional[int] = Field(None, ge=1, le=9999)
 
@@ -149,6 +151,7 @@ class ParticipacaoBase(BaseSchema):
         max_length=50,
         description="nome do campeão"
     )
+    campeao_icone_url: Optional[str] = Field(None, description="URL do ícone do campeão")
 
     abates: int = Field(default=0, ge=0, le=100)
     mortes: int = Field(default=0, ge=0, le=100)
