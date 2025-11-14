@@ -134,6 +134,7 @@ class PartidaBase(BaseSchema):
 class PartidaResponse(PartidaBase):
     id: int
     created_at: datetime
+    participacao: Optional['ParticipacaoResponse'] = None
 
     duracao_formatada: Optional[str] = Field(None, description="duração formatada (MM:SS)")
     data_formatada: Optional[str] = Field(None, description="data formatada")
@@ -300,4 +301,5 @@ class FiltroEstatisticas(BaseSchema):
 
 JogadorDetalhado.model_rebuild()
 PartidaDetalhada.model_rebuild()
-ParticipacaoDetalhada.model_rebuild()  
+ParticipacaoDetalhada.model_rebuild()
+PartidaResponse.model_rebuild()  
